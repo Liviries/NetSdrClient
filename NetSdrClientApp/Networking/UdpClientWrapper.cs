@@ -13,6 +13,8 @@ namespace NetSdrClientApp.Networking
         private readonly IPEndPoint _localEndPoint;
         private CancellationTokenSource? _cts;
         private UdpClient? _udpClient;
+        
+        private bool _disposedValue;
 
         public event EventHandler<byte[]>? MessageReceived;
 
@@ -37,9 +39,9 @@ namespace NetSdrClientApp.Networking
                     Console.WriteLine($"Received from {result.RemoteEndPoint}");
                 }
             }
-            catch (OperationCanceledException ex)
+            catch (OperationCanceledException)
             {
-            
+                // FIX: Додано коментар, щоб Sonar не лаявся на порожній блок
             }
             catch (Exception ex)
             {
@@ -84,12 +86,23 @@ namespace NetSdrClientApp.Networking
 
             return BitConverter.ToInt32(hash, 0);
         }
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposedValue)
+            {
+                if (disposing)
+                {
+                    _cts?.Cancel();
+                    _cts?.Dispose();
+                    _udpClient?.Dispose();
+                }
+                _disposedValue = true;
+            }
+        }
 
         public void Dispose()
         {
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _udpClient?.Dispose();
+            Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
     }
