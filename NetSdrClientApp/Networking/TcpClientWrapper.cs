@@ -6,7 +6,6 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using NetSdrClientApp.Messages;
 
 namespace NetSdrClientApp.Networking
 {
@@ -136,15 +135,6 @@ namespace NetSdrClientApp.Networking
             {
                 throw new InvalidOperationException("Not connected to a server.");
             }
-        }
-
-        // Deliberate architecture violation for Lab 5:
-        // Networking layer now depends on Messages, which should break ArchitectureTests.
-        private void CreateDummyMessageForArchitectureRule()
-        {
-            var dummy = NetSdrMessageHelper.GetDataItemMessage(
-                NetSdrMessageHelper.MsgTypes.DataItem0,
-                Array.Empty<byte>());
         }
 
         protected virtual void Dispose(bool disposing)
