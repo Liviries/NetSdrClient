@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+
+[assembly: InternalsVisibleTo("EchoTcpServerTests")]
 
 /// <summary>
 /// This program was designed for test purposes only
@@ -20,6 +22,21 @@ public class EchoServer
     {
         _port = port;
         _cancellationTokenSource = new CancellationTokenSource();
+    }
+
+    public bool IsRunning => _listener != null;
+
+    public int ListeningPort
+    {
+        get
+        {
+            if (_listener?.LocalEndpoint is IPEndPoint endPoint)
+            {
+                return endPoint.Port;
+            }
+
+            return 0;
+        }
     }
 
     public async Task StartAsync()
@@ -117,14 +134,20 @@ public class UdpTimedSender : IDisposable
 {
     private readonly string _host;
     private readonly int _port;
-    private readonly UdpClient _udpClient;
+    private readonly IUdpClientWrapper _udpClient;
     private Timer _timer;
+    private ushort _sequence;
 
     public UdpTimedSender(string host, int port)
+        : this(host, port, new UdpClientWrapper())
+    {
+    }
+
+    public UdpTimedSender(string host, int port, IUdpClientWrapper udpClient)
     {
         _host = host;
         _port = port;
-        _udpClient = new UdpClient();
+        _udpClient = udpClient;
     }
 
     public void StartSending(int intervalMilliseconds)
@@ -135,9 +158,7 @@ public class UdpTimedSender : IDisposable
         _timer = new Timer(SendMessageCallback, null, 0, intervalMilliseconds);
     }
 
-    ushort i = 0;
-
-    private void SendMessageCallback(object state)
+    internal void SendMessageCallback(object? state)
     {
         try
         {
@@ -145,9 +166,9 @@ public class UdpTimedSender : IDisposable
             Random rnd = new Random();
             byte[] samples = new byte[1024];
             rnd.NextBytes(samples);
-            i++;
+            _sequence++;
 
-            byte[] msg = (new byte[] { 0x04, 0x84 }).Concat(BitConverter.GetBytes(i)).Concat(samples).ToArray();
+            byte[] msg = (new byte[] { 0x04, 0x84 }).Concat(BitConverter.GetBytes(_sequence)).Concat(samples).ToArray();
             var endpoint = new IPEndPoint(IPAddress.Parse(_host), _port);
 
             _udpClient.Send(msg, msg.Length, endpoint);
@@ -168,6 +189,26 @@ public class UdpTimedSender : IDisposable
     public void Dispose()
     {
         StopSending();
+        _udpClient.Dispose();
+    }
+}
+
+public interface IUdpClientWrapper : IDisposable
+{
+    int Send(byte[] datagram, int bytes, IPEndPoint endPoint);
+}
+
+public sealed class UdpClientWrapper : IUdpClientWrapper
+{
+    private readonly UdpClient _udpClient = new UdpClient();
+
+    public int Send(byte[] datagram, int bytes, IPEndPoint endPoint)
+    {
+        return _udpClient.Send(datagram, bytes, endPoint);
+    }
+
+    public void Dispose()
+    {
         _udpClient.Dispose();
     }
 }
