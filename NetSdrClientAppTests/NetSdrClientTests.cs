@@ -115,5 +115,47 @@ public class NetSdrClientTests
         Assert.That(_client.IQStarted, Is.False);
     }
 
+    [Test]
+    public async Task ChangeFrequencyAsyncTest()
+    {
+        //Arrange 
+        await ConnectAsyncTest();
+        long frequency = 100000000; // 100 MHz
+        int channel = 1;
+
+        //act
+        await _client.ChangeFrequencyAsync(frequency, channel);
+
+        //assert
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.AtLeast(4));
+    }
+
+    [Test]
+    public async Task ChangeFrequencyNoConnectionTest()
+    {
+        //Arrange
+        long frequency = 100000000; // 100 MHz
+        int channel = 1;
+
+        //act & assert
+        //Should not throw exception when not connected
+        await _client.ChangeFrequencyAsync(frequency, channel);
+        
+        //The message should not be sent
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.Never);
+    }
+
+    [Test]
+    public async Task StopIQNoConnectionTest()
+    {
+        //act
+        await _client.StopIQAsync();
+
+        //assert
+        //No exception thrown
+        _tcpMock.Verify(tcp => tcp.SendMessageAsync(It.IsAny<byte[]>()), Times.Never);
+        _updMock.Verify(udp => udp.StopListening(), Times.Never);
+    }
+
     //TODO: cover the rest of the NetSdrClient code here
 }
