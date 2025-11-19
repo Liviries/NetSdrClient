@@ -120,6 +120,7 @@ namespace NetSdrClientApp.Networking
                 }
                 catch (OperationCanceledException)
                 {
+                    // Listening cancelled, expected behavior on stop.
                 }
                 catch (Exception ex)
                 {
