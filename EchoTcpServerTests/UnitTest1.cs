@@ -80,6 +80,22 @@ public class EchoServerTests
         Assert.That(server.IsRunning, Is.False);
     }
 
+    [Test]
+    public async Task EchoServer_Dispose_StopsServerAndIsIdempotent()
+    {
+        var server = new EchoServer(0);
+        var serverTask = Task.Run(() => server.StartAsync());
+
+        await WaitForServerToStartAsync(server, TimeSpan.FromSeconds(5));
+
+        server.Dispose();
+        await Task.WhenAny(serverTask, Task.Delay(TimeSpan.FromSeconds(5)));
+
+        Assert.That(server.IsRunning, Is.False);
+
+        Assert.DoesNotThrow(() => server.Dispose());
+    }
+
     private static async Task WaitForServerToStartAsync(EchoServer server, TimeSpan timeout)
     {
         var start = DateTime.UtcNow;
