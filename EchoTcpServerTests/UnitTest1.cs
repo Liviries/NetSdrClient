@@ -31,11 +31,9 @@ public class EchoServerTests
     [Test]
     public async Task EchoServer_EchoesBackReceivedData()
     {
-        // Arrange
         var server = new EchoServer(0);
         var serverTask = Task.Run(() => server.StartAsync());
 
-        // Wait until the listener has started and a port has been assigned
         await WaitForServerToStartAsync(server, TimeSpan.FromSeconds(5));
         int port = server.ListeningPort;
 
@@ -45,18 +43,30 @@ public class EchoServerTests
         var stream = client.GetStream();
         byte[] message = { 1, 2, 3, 4 };
 
-        // Act
-        await stream.WriteAsync(message, 0, message.Length);
+        await stream.WriteAsync(message);
 
         byte[] buffer = new byte[message.Length];
-        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+        int bytesRead = await stream.ReadAsync(buffer);
 
         server.Stop();
         await Task.WhenAny(serverTask, Task.Delay(TimeSpan.FromSeconds(5)));
 
-        // Assert
         Assert.That(bytesRead, Is.EqualTo(message.Length));
         Assert.That(buffer, Is.EqualTo(message));
+    }
+
+    [Test]
+    public async Task EchoServer_Stop_DisposesResources()
+    {
+        var server = new EchoServer(0);
+        var serverTask = Task.Run(() => server.StartAsync());
+
+        await WaitForServerToStartAsync(server, TimeSpan.FromSeconds(5));
+
+        server.Stop();
+        await Task.WhenAny(serverTask, Task.Delay(TimeSpan.FromSeconds(5)));
+
+        Assert.That(server.IsRunning, Is.False);
     }
 
     private static async Task WaitForServerToStartAsync(EchoServer server, TimeSpan timeout)
