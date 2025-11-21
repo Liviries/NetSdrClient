@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,11 +14,17 @@ namespace EchoTcpServer
     /// This program was designed for test purposes only
     /// Not for a review
     /// </summary>
-    public class EchoServer
+    public sealed class EchoServer : IDisposable
     {
         private readonly int _port;
         private TcpListener? _listener;
         private readonly CancellationTokenSource _cancellationTokenSource = new();
+        private bool _disposed;
+
+        public EchoServer(int port)
+        {
+            _port = port;
+        }
 
         public bool IsRunning => _listener != null;
 
@@ -95,9 +102,26 @@ namespace EchoTcpServer
             Console.WriteLine("Server stopped.");
         }
 
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            Stop();
+            _cancellationTokenSource.Dispose();
+
+            _disposed = true;
+            GC.SuppressFinalize(this);
+        }
+    }
+
+    internal static class Program
+    {
         public static async Task Main(string[] args)
         {
-            EchoServer server = new EchoServer(5000);
+            using var server = new EchoServer(5000);
 
             var serverTask = server.StartAsync();
 
@@ -118,7 +142,7 @@ namespace EchoTcpServer
 
                 sender.StopSending();
                 server.Stop();
-            await serverTask;
+                await serverTask;
                 Console.WriteLine("Sender stopped.");
             }
         }
@@ -159,9 +183,8 @@ namespace EchoTcpServer
             try
             {
                 //dummy data
-                Random rnd = new Random();
                 byte[] samples = new byte[1024];
-                rnd.NextBytes(samples);
+                RandomNumberGenerator.Fill(samples);
                 _sequence++;
 
                 byte[] msg = (new byte[] { 0x04, 0x84 }).Concat(BitConverter.GetBytes(_sequence)).Concat(samples).ToArray();
