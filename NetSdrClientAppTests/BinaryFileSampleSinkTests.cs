@@ -8,6 +8,7 @@ public class BinaryFileSampleSinkTests
     private static readonly int[] BatchOneSamples = { 1, 2 };
     private static readonly int[] BatchTwoSamples = { 3 };
     private static readonly byte[] ExpectedBytesSequence = { 1, 0, 2, 0, 3, 0 };
+    private static readonly int[] DefaultSamples = { 42 };
 
     [Test]
     public void StoreSamples_AppendsBinaryContent()
@@ -74,7 +75,7 @@ public class BinaryFileSampleSinkTests
             Environment.CurrentDirectory = tempDir.FullName;
             var sink = new BinaryFileSampleSink();
 
-            sink.StoreSamples(new[] { 42 });
+            sink.StoreSamples(DefaultSamples);
 
             var defaultFile = Path.Combine(tempDir.FullName, "samples.bin");
             Assert.That(File.Exists(defaultFile), Is.True);

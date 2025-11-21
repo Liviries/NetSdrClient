@@ -23,17 +23,32 @@ public class FakeUdpClientWrapper : IUdpClientWrapper
 
     public void Dispose()
     {
+        if (Disposed)
+        {
+            return;
+        }
+
         Disposed = true;
+        GC.SuppressFinalize(this);
     }
 }
 
 public class ThrowingUdpClientWrapper : IUdpClientWrapper
 {
+    public bool Disposed { get; private set; }
+
     public int Send(byte[] datagram, int bytes, IPEndPoint endPoint)
         => throw new InvalidOperationException("boom");
 
     public void Dispose()
     {
+        if (Disposed)
+        {
+            return;
+        }
+
+        Disposed = true;
+        GC.SuppressFinalize(this);
     }
 }
 
@@ -62,8 +77,11 @@ public class EchoServerTests
         server.Stop();
         await Task.WhenAny(serverTask, Task.Delay(TimeSpan.FromSeconds(5)));
 
-        Assert.That(bytesRead, Is.EqualTo(message.Length));
-        Assert.That(buffer, Is.EqualTo(message));
+        Assert.Multiple(() =>
+        {
+            Assert.That(bytesRead, Is.EqualTo(message.Length));
+            Assert.That(buffer, Is.EqualTo(message));
+        });
     }
 
     [Test]
@@ -137,22 +155,25 @@ public class UdpTimedSenderTests
         sender.SendMessageCallback(null!);
 
         // Assert
-        Assert.That(fakeClient.SendCallCount, Is.EqualTo(1));
-        Assert.That(fakeClient.LastDatagram, Is.Not.Null);
-        Assert.That(fakeClient.LastEndpoint, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(fakeClient.SendCallCount, Is.EqualTo(1));
+            Assert.That(fakeClient.LastDatagram, Is.Not.Null);
+            Assert.That(fakeClient.LastEndpoint, Is.Not.Null);
+        });
 
         var datagram = fakeClient.LastDatagram!;
 
         // Header (2 bytes), sequence (2 bytes), payload (1024 bytes)
-        Assert.That(datagram.Length, Is.EqualTo(2 + 2 + 1024));
-
-        // Check header bytes
-        Assert.That(datagram[0], Is.EqualTo(0x04));
-        Assert.That(datagram[1], Is.EqualTo(0x84));
-
-        // Sequence number should start from 1
-        ushort sequence = BitConverter.ToUInt16(datagram, 2);
-        Assert.That(sequence, Is.EqualTo(1));
+        // Check header bytes and sequence start
+        var sequence = BitConverter.ToUInt16(datagram, 2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(datagram, Has.Length.EqualTo(2 + 2 + 1024));
+            Assert.That(datagram[0], Is.EqualTo(0x04));
+            Assert.That(datagram[1], Is.EqualTo(0x84));
+            Assert.That(sequence, Is.EqualTo(1));
+        });
     }
 
     [Test]
@@ -167,8 +188,11 @@ public class UdpTimedSenderTests
         sender.SendMessageCallback(null);
         var second = BitConverter.ToUInt16(fakeClient.LastDatagram!, 2);
 
-        Assert.That(first, Is.EqualTo(1));
-        Assert.That(second, Is.EqualTo(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.EqualTo(1));
+            Assert.That(second, Is.EqualTo(2));
+        });
     }
 
     [Test]
@@ -182,9 +206,16 @@ public class UdpTimedSenderTests
     [Test]
     public void StopSending_WithoutStart_DoesNothing()
     {
-        var sender = new UdpTimedSender("127.0.0.1", 60000, new FakeUdpClientWrapper());
+        var fakeClient = new FakeUdpClientWrapper();
+        var sender = new UdpTimedSender("127.0.0.1", 60000, fakeClient);
 
         sender.StopSending();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fakeClient.SendCallCount, Is.EqualTo(0));
+            Assert.That(fakeClient.Disposed, Is.False);
+        });
     }
 
     [Test]
