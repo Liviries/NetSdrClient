@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace NetSdrClientApp.Messages
 {
-    //TODO: analyze possible use of [StructLayout] for better performance and readability 
+    // NOTE: consider [StructLayout] for future serialization optimisations.
     public static class NetSdrMessageHelper
     {
         private const short _maxMessageLength = 8191;
@@ -108,23 +108,39 @@ namespace NetSdrClientApp.Messages
 
         public static IEnumerable<int> GetSamples(ushort sampleSize, byte[] body)
         {
-            sampleSize /= 8; //to bytes
-            if (sampleSize  > 4)
+            int bytesPerSample = NormalizeSampleSize(sampleSize);
+            return ExtractSamples(bytesPerSample, body);
+        }
+
+        private static int NormalizeSampleSize(ushort sampleSizeBits)
+        {
+            if (sampleSizeBits % 8 != 0)
             {
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(
+                    nameof(sampleSizeBits),
+                    sampleSizeBits,
+                    "Sample size must align to full bytes.");
             }
 
-            var bodyEnumerable = body as IEnumerable<byte>;
-            var prefixBytes = Enumerable.Range(0, 4 - sampleSize)
-                                      .Select(b => (byte)0);
-
-            while (bodyEnumerable.Count() >= sampleSize)
+            int sampleSize = sampleSizeBits / 8;
+            if (sampleSize <= 0 || sampleSize > 4)
             {
-                yield return BitConverter.ToInt32(bodyEnumerable
-                    .Take(sampleSize)
-                    .Concat(prefixBytes)
-                    .ToArray());
-                bodyEnumerable = bodyEnumerable.Skip(sampleSize);
+                throw new ArgumentOutOfRangeException(
+                    nameof(sampleSizeBits),
+                    sampleSizeBits,
+                    "Sample size must be between 8 and 32 bits.");
+            }
+
+            return sampleSize;
+        }
+
+        private static IEnumerable<int> ExtractSamples(int bytesPerSample, byte[] body)
+        {
+            for (int offset = 0; offset + bytesPerSample <= body.Length; offset += bytesPerSample)
+            {
+                Span<byte> sampleBytes = stackalloc byte[4];
+                body.AsSpan(offset, bytesPerSample).CopyTo(sampleBytes);
+                yield return BitConverter.ToInt32(sampleBytes);
             }
         }
 
@@ -140,7 +156,7 @@ namespace NetSdrClientApp.Messages
 
             if (msgLength < 0 || lengthWithHeader > _maxMessageLength)
             {
-                throw new ArgumentException("Message length exceeds allowed value");
+                throw new ArgumentException("Message length exceeds allowed value", nameof(msgLength));
             }
 
             return BitConverter.GetBytes((ushort)(lengthWithHeader + ((int)type << 13)));

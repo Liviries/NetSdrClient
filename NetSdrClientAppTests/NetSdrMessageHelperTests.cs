@@ -20,9 +20,9 @@ namespace NetSdrClientAppTests
             //Act
             byte[] msg = NetSdrMessageHelper.GetControlItemMessage(type, code, new byte[parametersLength]);
 
-            var headerBytes = msg.Take(2);
-            var codeBytes = msg.Skip(2).Take(2);
-            var parametersBytes = msg.Skip(4);
+            var headerBytes = msg.Take(2).ToArray();
+            var codeBytes = msg.Skip(2).Take(2).ToArray();
+            var parametersBytes = msg.Skip(4).ToArray();
 
             var num = BitConverter.ToUInt16(headerBytes.ToArray());
             var actualType = (NetSdrMessageHelper.MsgTypes)(num >> 13);
@@ -30,13 +30,14 @@ namespace NetSdrClientAppTests
             var actualCode = BitConverter.ToInt16(codeBytes.ToArray());
 
             //Assert
-            Assert.That(headerBytes.Count(), Is.EqualTo(2));
-            Assert.That(msg.Length, Is.EqualTo(actualLength));
-            Assert.That(type, Is.EqualTo(actualType));
-
-            Assert.That(actualCode, Is.EqualTo((short)code));
-
-            Assert.That(parametersBytes.Count(), Is.EqualTo(parametersLength));
+            Assert.Multiple(() =>
+            {
+                Assert.That(headerBytes, Has.Length.EqualTo(2));
+                Assert.That(msg.Length, Is.EqualTo(actualLength));
+                Assert.That(actualType, Is.EqualTo(type));
+                Assert.That(actualCode, Is.EqualTo((short)code));
+                Assert.That(parametersBytes, Has.Length.EqualTo(parametersLength));
+            });
         }
 
         [Test]
@@ -49,19 +50,21 @@ namespace NetSdrClientAppTests
             //Act
             byte[] msg = NetSdrMessageHelper.GetDataItemMessage(type, new byte[parametersLength]);
 
-            var headerBytes = msg.Take(2);
-            var parametersBytes = msg.Skip(2);
+            var headerBytes = msg.Take(2).ToArray();
+            var parametersBytes = msg.Skip(2).ToArray();
 
             var num = BitConverter.ToUInt16(headerBytes.ToArray());
             var actualType = (NetSdrMessageHelper.MsgTypes)(num >> 13);
             var actualLength = num - ((int)actualType << 13);
 
             //Assert
-            Assert.That(headerBytes.Count(), Is.EqualTo(2));
-            Assert.That(msg.Length, Is.EqualTo(actualLength));
-            Assert.That(type, Is.EqualTo(actualType));
-
-            Assert.That(parametersBytes.Count(), Is.EqualTo(parametersLength));
+            Assert.Multiple(() =>
+            {
+                Assert.That(headerBytes, Has.Length.EqualTo(2));
+                Assert.That(msg.Length, Is.EqualTo(actualLength));
+                Assert.That(actualType, Is.EqualTo(type));
+                Assert.That(parametersBytes, Has.Length.EqualTo(parametersLength));
+            });
         }
 
         [Test]
@@ -75,11 +78,14 @@ namespace NetSdrClientAppTests
             var samples = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
 
             //Assert
-            Assert.That(samples.Count, Is.EqualTo(4));
-            Assert.That(samples[0], Is.EqualTo(1));
-            Assert.That(samples[1], Is.EqualTo(2));
-            Assert.That(samples[2], Is.EqualTo(3));
-            Assert.That(samples[3], Is.EqualTo(4));
+            Assert.Multiple(() =>
+            {
+                Assert.That(samples, Has.Count.EqualTo(4));
+                Assert.That(samples[0], Is.EqualTo(1));
+                Assert.That(samples[1], Is.EqualTo(2));
+                Assert.That(samples[2], Is.EqualTo(3));
+                Assert.That(samples[3], Is.EqualTo(4));
+            });
         }
 
         [Test]
@@ -97,11 +103,14 @@ namespace NetSdrClientAppTests
             bool success = NetSdrMessageHelper.TranslateMessage(msg, out var actualType, out var actualCode, out var sequenceNum, out var body);
 
             //Assert
-            Assert.That(success, Is.True);
-            Assert.That(actualType, Is.EqualTo(type));
-            Assert.That(actualCode, Is.EqualTo(NetSdrMessageHelper.ControlItemCodes.None));
-            Assert.That(sequenceNum, Is.EqualTo(expectedSequenceNum));
-            Assert.That(body, Is.EqualTo(bodyData));
+            Assert.Multiple(() =>
+            {
+                Assert.That(success, Is.True);
+                Assert.That(actualType, Is.EqualTo(type));
+                Assert.That(actualCode, Is.EqualTo(NetSdrMessageHelper.ControlItemCodes.None));
+                Assert.That(sequenceNum, Is.EqualTo(expectedSequenceNum));
+                Assert.That(body, Is.EqualTo(bodyData));
+            });
         }
 
         [Test]
@@ -115,10 +124,27 @@ namespace NetSdrClientAppTests
             var samples = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
 
             //Assert
-            Assert.That(samples.Count, Is.EqualTo(3));
-            Assert.That(samples[0], Is.EqualTo(1));
-            Assert.That(samples[1], Is.EqualTo(2));
-            Assert.That(samples[2], Is.EqualTo(3));
+            Assert.Multiple(() =>
+            {
+                Assert.That(samples, Has.Count.EqualTo(3));
+                Assert.That(samples[0], Is.EqualTo(1));
+                Assert.That(samples[1], Is.EqualTo(2));
+                Assert.That(samples[2], Is.EqualTo(3));
+            });
+        }
+
+        [Test]
+        public void GetSamples32BitTest()
+        {
+            ushort sampleSize = 32;
+            byte[] body = new byte[]
+            {
+                0x78, 0x56, 0x34, 0x12
+            };
+
+            var samples = NetSdrMessageHelper.GetSamples(sampleSize, body).ToList();
+
+            Assert.That(samples.Single(), Is.EqualTo(0x12345678));
         }
 
         [Test]
@@ -130,6 +156,12 @@ namespace NetSdrClientAppTests
 
             //Act & Assert
             Assert.Throws<ArgumentOutOfRangeException>(() => NetSdrMessageHelper.GetSamples(sampleSize, body).ToList());
+        }
+
+        [Test]
+        public void GetSamplesMisalignedSizeTest()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => NetSdrMessageHelper.GetSamples(12, Array.Empty<byte>()).ToList());
         }
 
         [Test]

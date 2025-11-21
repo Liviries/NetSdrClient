@@ -36,9 +36,12 @@ public class UdpClientWrapperTests
         var same = new UdpClientWrapper(10001);
         var different = new UdpClientWrapper(10002);
 
-        Assert.That(first, Is.EqualTo(same));
-        Assert.That(first.GetHashCode(), Is.EqualTo(same.GetHashCode()));
-        Assert.That(first, Is.Not.EqualTo(different));
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.EqualTo(same));
+            Assert.That(first.GetHashCode(), Is.EqualTo(same.GetHashCode()));
+            Assert.That(first, Is.Not.EqualTo(different));
+        });
     }
 
     private static int GetFreeUdpPort()
