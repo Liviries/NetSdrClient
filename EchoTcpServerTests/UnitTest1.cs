@@ -11,6 +11,7 @@ public class FakeUdpClientWrapper : IUdpClientWrapper
     public byte[]? LastDatagram { get; private set; }
     public IPEndPoint? LastEndpoint { get; private set; }
     public int SendCallCount { get; private set; }
+    public bool Disposed { get; private set; }
 
     public int Send(byte[] datagram, int bytes, IPEndPoint endPoint)
     {
@@ -22,7 +23,17 @@ public class FakeUdpClientWrapper : IUdpClientWrapper
 
     public void Dispose()
     {
-        // Nothing to dispose in the fake
+        Disposed = true;
+    }
+}
+
+public class ThrowingUdpClientWrapper : IUdpClientWrapper
+{
+    public int Send(byte[] datagram, int bytes, IPEndPoint endPoint)
+        => throw new InvalidOperationException("boom");
+
+    public void Dispose()
+    {
     }
 }
 
@@ -126,5 +137,50 @@ public class UdpTimedSenderTests
         // Sequence number should start from 1
         ushort sequence = BitConverter.ToUInt16(datagram, 2);
         Assert.That(sequence, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void SendMessageCallback_IncrementsSequence()
+    {
+        var fakeClient = new FakeUdpClientWrapper();
+        var sender = new UdpTimedSender("127.0.0.1", 60000, fakeClient);
+
+        sender.SendMessageCallback(null);
+        var first = BitConverter.ToUInt16(fakeClient.LastDatagram!, 2);
+
+        sender.SendMessageCallback(null);
+        var second = BitConverter.ToUInt16(fakeClient.LastDatagram!, 2);
+
+        Assert.That(first, Is.EqualTo(1));
+        Assert.That(second, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void SendMessageCallback_WhenUdpSendThrows_IsHandled()
+    {
+        var sender = new UdpTimedSender("127.0.0.1", 60000, new ThrowingUdpClientWrapper());
+
+        Assert.DoesNotThrow(() => sender.SendMessageCallback(null));
+    }
+
+    [Test]
+    public void StopSending_WithoutStart_DoesNothing()
+    {
+        var sender = new UdpTimedSender("127.0.0.1", 60000, new FakeUdpClientWrapper());
+
+        sender.StopSending();
+    }
+
+    [Test]
+    public void Dispose_DisposesClientAndIsIdempotent()
+    {
+        var fakeClient = new FakeUdpClientWrapper();
+        var sender = new UdpTimedSender("127.0.0.1", 60000, fakeClient);
+
+        sender.StartSending(1000);
+        sender.Dispose();
+        sender.Dispose();
+
+        Assert.That(fakeClient.Disposed, Is.True);
     }
 }
