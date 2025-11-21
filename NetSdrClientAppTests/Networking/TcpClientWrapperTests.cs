@@ -2,6 +2,7 @@ using NetSdrClientApp.Networking;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 
 namespace NetSdrClientAppTests.Networking;
 
@@ -28,7 +29,7 @@ public class TcpClientWrapperTests
         await wrapper.SendMessageAsync(outbound);
 
         var buffer = new byte[outbound.Length];
-        int bytesRead = await serverStream.ReadAsync(buffer, 0, buffer.Length);
+        int bytesRead = await serverStream.ReadAsync(buffer.AsMemory(0, buffer.Length), CancellationToken.None);
         Assert.That(buffer.Take(bytesRead), Is.EqualTo(outbound));
 
         var response = new byte[] { 0x0A, 0x0B, 0x0C };
@@ -40,8 +41,28 @@ public class TcpClientWrapperTests
         const string textMessage = "Hello Tcp";
         await wrapper.SendMessageAsync(textMessage);
         var textBuffer = new byte[textMessage.Length];
-        bytesRead = await serverStream.ReadAsync(textBuffer, 0, textBuffer.Length);
+        bytesRead = await serverStream.ReadAsync(textBuffer.AsMemory(0, textBuffer.Length), CancellationToken.None);
         Assert.That(Encoding.UTF8.GetString(textBuffer, 0, bytesRead), Is.EqualTo(textMessage));
+
+        wrapper.Disconnect();
+    }
+
+    [Test]
+    public async Task Connect_WhenAlreadyConnected_DoesNotReconnect()
+    {
+        int port = GetFreeTcpPort();
+        using var listener = new TcpListener(IPAddress.Loopback, port);
+        listener.Start();
+
+        using var wrapper = new TcpClientWrapper(IPAddress.Loopback.ToString(), port);
+        wrapper.Connect();
+
+        using var serverClient = await listener.AcceptTcpClientAsync();
+        Assert.That(wrapper.Connected, Is.True);
+
+        wrapper.Connect(); // should early-exit because connection already established
+
+        Assert.That(wrapper.Connected, Is.True);
 
         wrapper.Disconnect();
     }

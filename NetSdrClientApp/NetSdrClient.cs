@@ -167,7 +167,7 @@ namespace NetSdrClientApp
 
         private void _tcpClient_MessageReceived(object? sender, byte[] e)
         {
-            //TODO: add Unsolicited messages handling here
+            // NOTE: unsolicited messages can be handled here when requirements emerge.
             if (responseTaskSource != null)
             {
                 responseTaskSource.TrySetResult(e);
