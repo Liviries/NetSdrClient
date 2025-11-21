@@ -1,6 +1,9 @@
 ﻿using Moq;
 using NetSdrClientApp;
+using NetSdrClientApp.Messages;
 using NetSdrClientApp.Networking;
+using NetSdrClientApp.Samples;
+using System.Linq;
 
 namespace NetSdrClientAppTests;
 
@@ -9,6 +12,8 @@ public class NetSdrClientTests
     NetSdrClient _client;
     Mock<ITcpClient> _tcpMock;
     Mock<IUdpClient> _updMock;
+    Mock<ISampleSink> _sampleSinkMock;
+    private static readonly int[] ExpectedSampleValues = { 1, 2 };
 
     public NetSdrClientTests() { }
 
@@ -32,8 +37,9 @@ public class NetSdrClientTests
         });
 
         _updMock = new Mock<IUdpClient>();
+        _sampleSinkMock = new Mock<ISampleSink>();
 
-        _client = new NetSdrClient(_tcpMock.Object, _updMock.Object);
+        _client = new NetSdrClient(_tcpMock.Object, _updMock.Object, _sampleSinkMock.Object);
     }
 
     [Test]
@@ -157,5 +163,45 @@ public class NetSdrClientTests
         _updMock.Verify(udp => udp.StopListening(), Times.Never);
     }
 
-    //TODO: cover the rest of the NetSdrClient code here
+    [Test]
+    public void UdpMessageReceived_StoresSamplesInSink()
+    {
+        var payload = new byte[] { 0x01, 0x00, 0x02, 0x00 };
+        var udpMessage = BuildDataItemMessage(payload);
+
+        _updMock.Raise(udp => udp.MessageReceived += null, _updMock.Object, udpMessage);
+
+        _sampleSinkMock.Verify(
+            sink => sink.StoreSamples(It.Is<IEnumerable<int>>(samples => samples.SequenceEqual(ExpectedSampleValues))),
+            Times.Once);
+    }
+
+    [Test]
+    public void UdpMessageReceived_WithEmptyBody_DoesNotWrite()
+    {
+        var udpMessage = NetSdrMessageHelper.GetDataItemMessage(
+            NetSdrMessageHelper.MsgTypes.DataItem0,
+            BitConverter.GetBytes((ushort)1));
+
+        _updMock.Raise(udp => udp.MessageReceived += null, _updMock.Object, udpMessage);
+
+        _sampleSinkMock.Verify(sink => sink.StoreSamples(It.IsAny<IEnumerable<int>>()), Times.Never);
+    }
+
+    [Test]
+    public void UdpMessageReceived_WithCorruptedMessage_IsIgnored()
+    {
+        var validMessage = BuildDataItemMessage(new byte[] { 0x01, 0x00 });
+        var corrupted = validMessage.Take(validMessage.Length - 1).ToArray();
+
+        _updMock.Raise(udp => udp.MessageReceived += null, _updMock.Object, corrupted);
+
+        _sampleSinkMock.Verify(sink => sink.StoreSamples(It.IsAny<IEnumerable<int>>()), Times.Never);
+    }
+
+    private static byte[] BuildDataItemMessage(byte[] bodyPayload)
+    {
+        var parameters = BitConverter.GetBytes((ushort)42).Concat(bodyPayload).ToArray();
+        return NetSdrMessageHelper.GetDataItemMessage(NetSdrMessageHelper.MsgTypes.DataItem0, parameters);
+    }
 }
