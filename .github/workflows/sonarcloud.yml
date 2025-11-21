@@ -79,8 +79,13 @@ jobs:
         run: |
           dotnet test NetSdrClientAppTests/NetSdrClientAppTests.csproj -c Release --no-build `
             /p:CollectCoverage=true `
+            /p:CoverletOutput=../TestResults/coverage
+
+          dotnet test EchoTcpServerTests/EchoTcpServerTests.csproj -c Release --no-build `
+            /p:CollectCoverage=true `
             /p:CoverletOutput=../TestResults/coverage `
-            /p:CoverletOutputFormat=opencover
+            /p:CoverletOutputFormat=opencover `
+            /p:MergeWith=../TestResults/coverage.json
         shell: pwsh
       # 3) END: SonarScanner
       - name: SonarScanner End
