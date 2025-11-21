@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
@@ -117,6 +118,7 @@ namespace EchoTcpServer
         }
     }
 
+    [ExcludeFromCodeCoverage]
     internal static class Program
     {
         public static async Task Main(string[] args)
