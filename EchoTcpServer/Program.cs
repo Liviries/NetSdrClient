@@ -100,6 +100,7 @@ namespace EchoTcpServer
         {
             _cancellationTokenSource.Cancel();
             _listener?.Stop();
+            _listener = null;
             Console.WriteLine("Server stopped.");
         }
 

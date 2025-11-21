@@ -48,6 +48,26 @@ public class TcpClientWrapperTests
     }
 
     [Test]
+    public async Task Connect_WhenAlreadyConnected_DoesNotReconnect()
+    {
+        int port = GetFreeTcpPort();
+        using var listener = new TcpListener(IPAddress.Loopback, port);
+        listener.Start();
+
+        using var wrapper = new TcpClientWrapper(IPAddress.Loopback.ToString(), port);
+        wrapper.Connect();
+
+        using var serverClient = await listener.AcceptTcpClientAsync();
+        Assert.That(wrapper.Connected, Is.True);
+
+        wrapper.Connect(); // should early-exit because connection already established
+
+        Assert.That(wrapper.Connected, Is.True);
+
+        wrapper.Disconnect();
+    }
+
+    [Test]
     public void SendMessageAsync_WithoutConnection_Throws()
     {
         using var wrapper = new TcpClientWrapper(IPAddress.Loopback.ToString(), GetFreeTcpPort());

@@ -62,5 +62,40 @@ public class BinaryFileSampleSinkTests
 
         Assert.Throws<ArgumentNullException>(() => sink.StoreSamples(null!));
     }
+
+    [Test]
+    public void DefaultConstructor_WritesToSamplesBinInWorkingDirectory()
+    {
+        var tempDir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}"));
+        var originalDirectory = Environment.CurrentDirectory;
+
+        try
+        {
+            Environment.CurrentDirectory = tempDir.FullName;
+            var sink = new BinaryFileSampleSink();
+
+            sink.StoreSamples(new[] { 42 });
+
+            var defaultFile = Path.Combine(tempDir.FullName, "samples.bin");
+            Assert.That(File.Exists(defaultFile), Is.True);
+            CollectionAssert.AreEqual(new byte[] { 42, 0 }, File.ReadAllBytes(defaultFile));
+        }
+        finally
+        {
+            Environment.CurrentDirectory = originalDirectory;
+            if (Directory.Exists(tempDir.FullName))
+            {
+                Directory.Delete(tempDir.FullName, recursive: true);
+            }
+        }
+    }
+
+    [TestCase(null)]
+    [TestCase("")]
+    [TestCase("  ")]
+    public void Constructor_WithInvalidPath_Throws(string? invalidPath)
+    {
+        Assert.Throws<ArgumentException>(() => new BinaryFileSampleSink(invalidPath!));
+    }
 }
 
