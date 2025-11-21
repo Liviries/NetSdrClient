@@ -13,6 +13,7 @@ public class NetSdrClientTests
     Mock<ITcpClient> _tcpMock;
     Mock<IUdpClient> _updMock;
     Mock<ISampleSink> _sampleSinkMock;
+    private static readonly int[] ExpectedSampleValues = { 1, 2 };
 
     public NetSdrClientTests() { }
 
@@ -171,7 +172,7 @@ public class NetSdrClientTests
         _updMock.Raise(udp => udp.MessageReceived += null, _updMock.Object, udpMessage);
 
         _sampleSinkMock.Verify(
-            sink => sink.StoreSamples(It.Is<IEnumerable<int>>(samples => samples.SequenceEqual(new[] { 1, 2 }))),
+            sink => sink.StoreSamples(It.Is<IEnumerable<int>>(samples => samples.SequenceEqual(ExpectedSampleValues))),
             Times.Once);
     }
 

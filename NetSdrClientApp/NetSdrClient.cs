@@ -119,7 +119,7 @@ namespace NetSdrClientApp
 
         private void _udpClient_MessageReceived(object? sender, byte[] e)
         {
-            if (!NetSdrMessageHelper.TranslateMessage(e, out NetSdrMessageHelper.MsgTypes type, out NetSdrMessageHelper.ControlItemCodes code, out ushort sequenceNum, out byte[] body))
+            if (!NetSdrMessageHelper.TranslateMessage(e, out _, out _, out _, out var body))
             {
                 Console.WriteLine("Unable to parse UDP payload.");
                 return;
@@ -135,9 +135,9 @@ namespace NetSdrClientApp
             }
         }
 
-        private static string FormatHexDump(IReadOnlyList<byte> payload)
+        private static string FormatHexDump(byte[]? payload)
         {
-            if (payload == null || payload.Count == 0)
+            if (payload == null || payload.Length == 0)
             {
                 return "<empty>";
             }

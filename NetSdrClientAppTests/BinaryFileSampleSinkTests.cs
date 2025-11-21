@@ -5,6 +5,10 @@ namespace NetSdrClientAppTests;
 [TestFixture]
 public class BinaryFileSampleSinkTests
 {
+    private static readonly int[] BatchOneSamples = { 1, 2 };
+    private static readonly int[] BatchTwoSamples = { 3 };
+    private static readonly byte[] ExpectedBytesSequence = { 1, 0, 2, 0, 3, 0 };
+
     [Test]
     public void StoreSamples_AppendsBinaryContent()
     {
@@ -14,12 +18,12 @@ public class BinaryFileSampleSinkTests
         {
             var sink = new BinaryFileSampleSink(path);
 
-            sink.StoreSamples(new[] { 1, 2 });
-            sink.StoreSamples(new[] { 3 });
+            sink.StoreSamples(BatchOneSamples);
+            sink.StoreSamples(BatchTwoSamples);
 
             var bytes = File.ReadAllBytes(path);
 
-            CollectionAssert.AreEqual(new byte[] { 1, 0, 2, 0, 3, 0 }, bytes);
+            CollectionAssert.AreEqual(ExpectedBytesSequence, bytes);
         }
         finally
         {

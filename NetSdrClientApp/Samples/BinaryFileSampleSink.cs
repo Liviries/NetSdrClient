@@ -27,10 +27,7 @@ namespace NetSdrClientApp.Samples
 
         public void StoreSamples(IEnumerable<int> samples)
         {
-            if (samples == null)
-            {
-                throw new ArgumentNullException(nameof(samples));
-            }
+            ArgumentNullException.ThrowIfNull(samples);
 
             var snapshot = samples.ToArray();
             if (snapshot.Length == 0)
